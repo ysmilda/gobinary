@@ -1,0 +1,46 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # The standard set is errcheck, govet, ineffassign, staticcheck and unused.
+  default: standard
+  enable:
+    - errorlint
+    - misspell
+    - unconvert
+  settings:
+    misspell:
+      locale: UK
+    staticcheck:
+      checks:
+        - all
+        # QF1008 suggests dropping an explicit embedded field selector, which
+        # is often less clear than spelling the field out.
+        - -QF1008
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ysmilda/gobinary
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

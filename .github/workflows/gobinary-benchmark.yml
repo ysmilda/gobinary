@@ -1,0 +1,61 @@
+name: gobinary-benchmark
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: gobinary-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: compare
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Checkout head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: head/go.mod
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Benchmark base
+        working-directory: base
+        run: go test -run '^$' -bench . -benchmem -count 10 > "$RUNNER_TEMP/base.txt"
+
+      - name: Benchmark head
+        working-directory: head
+        run: go test -run '^$' -bench . -benchmem -count 10 > "$RUNNER_TEMP/head.txt"
+
+      - name: Compare
+        run: |
+          {
+            echo '## gobinary benchmark comparison'
+            echo
+            echo '```'
+            "$(go env GOPATH)/bin/benchstat" "$RUNNER_TEMP/base.txt" "$RUNNER_TEMP/head.txt"
+            echo '```'
+          } > "$RUNNER_TEMP/comment.md"
+
+      - name: Comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md" --edit-last --create-if-none
